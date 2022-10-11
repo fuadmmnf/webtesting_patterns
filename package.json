@@ -8,5 +8,10 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@babel/core": "^7.19.3",
+    "@babel/parser": "^7.19.4",
+    "@babel/traverse": "^7.19.4"
+  }
 }
