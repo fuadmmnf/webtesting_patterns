@@ -6,12 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "commonjs",
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@babel/core": "^7.19.3",
-    "@babel/parser": "^7.19.4",
-    "@babel/traverse": "^7.19.4"
+    "puppeteer": "^19.4.1"
   }
 }
