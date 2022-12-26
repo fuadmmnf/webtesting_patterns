@@ -32,6 +32,8 @@ async function runTestFiles(browserPort, spec_files) {
     for (const spec of spec_files) {
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
+        if(arr[arr.length-1] !== 'notifications.spec.ts')
+            continue
         await runTests(page, arr[arr.length - 1])
     }
 
@@ -44,7 +46,7 @@ async function runTests(page, spec_file) {
     let testcase_item = (await page.$$(`[data-cy-row="${spec_file}"] > a`))[0]
     await testcase_item.click()
     while (true) {
-        await new Promise(resolve => setTimeout(resolve, 15000));
+        await new Promise(resolve => setTimeout(resolve, 5000));
         let selected_flags = await page.$$(allTestRanConfirmationSelector)
         if (selected_flags.length > 0) {
             // console.log('tests finished executing')
@@ -56,12 +58,14 @@ async function runTests(page, spec_file) {
     }
 
     async function parseCommands() {
-        clearTimeout(timeout);
+        // clearTimeout(timeout);
 
         const list = await page.$$(testListSelector)
         const results = []
         for (let i = 0; i < list.length; i++) {
             await list[i].click()
+            const test_title=  await (await (await list[i].$$("span.runnable-title > span"))[0].getProperty('innerHTML')).jsonValue()
+            console.log("TITLE: " + test_title)
             const commands = await (await list[i].$$(testCommandSectionSelector))[2].$$(testCommandsSelector)
 
             for (let j = 0; j < commands.length; j++) {
