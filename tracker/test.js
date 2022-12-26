@@ -5,17 +5,33 @@ var glob = require('glob');
 const testListSelector = ".runnables-region > ul.runnables > li"
 const testCommandSectionSelector = "ul.hooks-container > li"
 const testCommandsSelector = "span.command-info"
+const allTestRanConfirmationSelector = "li.suite.runnable.runnable-passed"
+
 const commandMethodSelector = "span.command-method"
 const commandMessageSelector = "span.command-message"
+
+
+async function testCode(page) {
+    let selected_flags = await page.$$(allTestRanConfirmationSelector)
+    if (selected_flags.length > 0) {
+        console.log('tests finished executing')
+        // await parseCommands()
+    } else {
+        console.log('still running tests')
+    }
+}
 
 async function runTestFiles(browserPort, spec_files) {
     const browserURL = `http://127.0.0.1:${browserPort}`
     const browser = await puppeteer.connect({browserURL})
     const page = (await browser.pages())[0]
 
-    for (let spec_file of spec_files) {
-        await page.goto('#/specs')
-        arr = spec_file.split('/')
+    // await testCode(page)
+    // process.exit(1)
+
+    for (const spec of spec_files) {
+        await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
+        let arr = spec.split('/')
         await runTests(page, arr[arr.length - 1])
     }
 
@@ -23,13 +39,21 @@ async function runTestFiles(browserPort, spec_files) {
 }
 
 async function runTests(page, spec_file) {
-    testcase_item = (await page.$$(`[data-cy-row="${spec_file}"]`))[0]
-    await testcase_item.click()
+    console.log("running: " + spec_file)
 
-    const timeout = setTimeout(async function () {
-        //check if all test cases ran
-        await parseCommands();
-    }, 30000);
+    let testcase_item = (await page.$$(`[data-cy-row="${spec_file}"] > a`))[0]
+    await testcase_item.click()
+    while (true) {
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        let selected_flags = await page.$$(allTestRanConfirmationSelector)
+        if (selected_flags.length > 0) {
+            // console.log('tests finished executing')
+            await parseCommands()
+            break
+        } else {
+            // console.log('still running tests')
+        }
+    }
 
     async function parseCommands() {
         clearTimeout(timeout);
@@ -57,10 +81,8 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 46067
+browserPort = 34549
 
-spec_files = []
 glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
-    spec_files.push(files)
+    runTestFiles(browserPort, files)
 })
-getTestCommands(browserPort, spec_files)
