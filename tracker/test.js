@@ -1,14 +1,17 @@
 const puppeteer = require('puppeteer-core')
-var glob = require('glob');
+const glob = require('glob');
 
 
 const testListSelector = ".runnables-region > ul.runnables > li"
 const testCommandSectionSelector = "ul.hooks-container > li"
 const testCommandsSelector = "span.command-info"
 const allTestRanConfirmationSelector = "li.suite.runnable.runnable-passed"
+const testTitleSelector = "span.runnable-title > span"
 
-const commandMethodSelector = "span.command-method"
-const commandMessageSelector = "span.command-message"
+const commandMethodSelector = "span.command-method > span"
+const commandMessageSelector = "span.command-message-text"
+const commandAliasSelector = "span.command-alias"
+const commandAliasCountSelector = "span.command-alias-count"
 
 
 async function testCode(page) {
@@ -32,7 +35,7 @@ async function runTestFiles(browserPort, spec_files) {
     for (const spec of spec_files) {
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
-        if(arr[arr.length-1] !== 'notifications.spec.ts')
+        if (arr[arr.length - 1] !== 'notifications.spec.ts')
             continue
         await runTests(page, arr[arr.length - 1])
     }
@@ -64,20 +67,32 @@ async function runTests(page, spec_file) {
         const results = []
         for (let i = 0; i < list.length; i++) {
             await list[i].click()
-            const test_title=  await (await (await list[i].$$("span.runnable-title > span"))[0].getProperty('innerHTML')).jsonValue()
+            const test_title = await (await (await list[i].$$(testTitleSelector))[0].getProperty('innerText')).jsonValue()
             console.log("TITLE: " + test_title)
             const commands = await (await list[i].$$(testCommandSectionSelector))[2].$$(testCommandsSelector)
 
             for (let j = 0; j < commands.length; j++) {
-                // results.push({
-                //     method: (await (await commands[j].$$(commandMethodSelector))[0].getProperty('innerHTML')).jsonValue(),
-                //     message: (await (await commands[j].$$(commandMessageSelector))[0].getProperty('innerHTML')).jsonValue()
-                // })
                 console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
-                console.log('\n')
+                const alias_handle = (await commands[j].$$(commandAliasSelector))
+                const alias_count_handle = (await commands[j].$$(commandAliasCountSelector))
+
+                const method_text = await (await (await commands[j].$$(commandMethodSelector))[0].getProperty('innerText')).jsonValue()
+                const message_handle = (await commands[j].$$(commandMessageSelector))
+                const method_message = message_handle.length === 0 ? "" : await (await message_handle[0].getProperty('innerText')).jsonValue()
+                results.push({
+
+                    method: method_text,
+                    message: method_message,
+                    alias: {
+                        message: (alias_handle.length === 0 ? "" : await (await alias_handle[0].getProperty('innerText')).jsonValue()),
+                        count: (alias_count_handle.length === 0 ? "" : await (await alias_count_handle[0].getProperty('innerText')).jsonValue())
+                    }
+                })
+                // console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
+                // console.log('\n')
             }
 
-            console.log('\n\n\n')
+            // console.log('\n\n\n')
         }
         console.log(results)
     }
@@ -85,7 +100,7 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 34549
+browserPort = 44863
 
 glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
     runTestFiles(browserPort, files)
