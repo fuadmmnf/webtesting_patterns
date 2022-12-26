@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer-core')
 const glob = require('glob');
+crypto = require('node:crypto');
 
 
 const testListSelector = ".runnables-region > ul.runnables > li"
@@ -43,13 +44,29 @@ async function runTestFiles(browserPort, spec_files) {
 
 }
 
+
+async function getElementEntity(page, command, selector) {
+    await command.hover()
+    await new Promise(resolve => setTimeout(resolve, 500))
+    console.log(selector)
+    console.log((await page.$$(selector)).length)
+    const elemHandle = (await page.$$(selector))[0]
+
+    const name = crypto.randomBytes(20).toString('hex')
+    await elemHandle.screenshot({path: `./../res/cypress-realworld-app/screenshots/${name}.png`})
+    return {
+        html: await (await elemHandle.getProperty('outerHTML')).jsonValue(),
+        screenshot: name
+    }
+}
+
+
 async function runTests(page, spec_file) {
     console.log("running: " + spec_file)
 
     let testcase_item = (await page.$$(`[data-cy-row="${spec_file}"] > a`))[0]
     await testcase_item.click()
     while (true) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
         let selected_flags = await page.$$(allTestRanConfirmationSelector)
         if (selected_flags.length > 0) {
             // console.log('tests finished executing')
@@ -72,13 +89,14 @@ async function runTests(page, spec_file) {
             const commands = await (await list[i].$$(testCommandSectionSelector))[2].$$(testCommandsSelector)
 
             for (let j = 0; j < commands.length; j++) {
-                console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
+                // console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
                 const alias_handle = (await commands[j].$$(commandAliasSelector))
                 const alias_count_handle = (await commands[j].$$(commandAliasCountSelector))
 
                 const method_text = await (await (await commands[j].$$(commandMethodSelector))[0].getProperty('innerText')).jsonValue()
                 const message_handle = (await commands[j].$$(commandMessageSelector))
                 const method_message = message_handle.length === 0 ? "" : await (await message_handle[0].getProperty('innerText')).jsonValue()
+
                 results.push({
 
                     method: method_text,
@@ -86,7 +104,11 @@ async function runTests(page, spec_file) {
                     alias: {
                         message: (alias_handle.length === 0 ? "" : await (await alias_handle[0].getProperty('innerText')).jsonValue()),
                         count: (alias_count_handle.length === 0 ? "" : await (await alias_count_handle[0].getProperty('innerText')).jsonValue())
-                    }
+                    },
+                    element_entity: (method_text !== 'get' ? {
+                        html: "",
+                        screenshot: ""
+                    } : await getElementEntity(page, commands[j], method_message))
                 })
                 // console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
                 // console.log('\n')
