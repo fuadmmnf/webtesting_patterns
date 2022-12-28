@@ -134,7 +134,7 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 43713
+browserPort = 39909
 
 glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
     runTestFiles(browserPort, files)
