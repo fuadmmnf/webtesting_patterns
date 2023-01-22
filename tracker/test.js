@@ -1,3 +1,4 @@
+const fs = require('fs');
 const puppeteer = require('puppeteer-core')
 const glob = require('glob');
 crypto = require('node:crypto');
@@ -30,10 +31,10 @@ async function runTestFiles(browserPort, spec_files) {
     for (const spec of spec_files) {
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
-        if (arr[arr.length - 1] !== 'transaction-feeds.spec.ts')
+        if (!['user-settings.spec.ts'].includes(arr[arr.length - 1]))
             continue
         await runTests(page, arr[arr.length - 1])
-        break
+        // break
     }
 
 
@@ -50,20 +51,43 @@ async function getElementEntity(page, frame, command, selector) {
         await highlightHandle[0].click()
     }
     // await new Promise(resolve => setTimeout(resolve, 200))
-    const elemHandle = (await frame.$$(formattedSelector))
-    console.log(formattedSelector + " " + elemHandle.length)
+    let elemHandle = (await frame.$$(formattedSelector))
+    // console.log(formattedSelector + " " + elemHandle.length)
     if (elemHandle.length === 0) {
-        return {html: '', screenshot: ''}
+        return {
+            url: {
+                before: '',
+                after: '',
+            }, html: '', screenshot: ''
+        }
     }
-    let screenshotName = ''
-    const htmlContent = await (await elemHandle[0].getProperty('outerHTML')).jsonValue()
-    if (await elemHandle[0].boundingBox()) {
-        screenshotName = `./../res/cypress-realworld-app/screenshots/${crypto.randomBytes(20).toString('hex')}.png`
-        await elemHandle[0].screenshot({path: screenshotName})
+    // let screenshotName = ''
+    let htmlContent = await (await elemHandle[0].getProperty('outerHTML')).jsonValue()
+    let tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
+    if (tag === 'DIV') {
+        // console.log(htmlContent)
+        elemHandle = (await elemHandle[0].$$("button,input,a,h1,h2"))
+        if (elemHandle.length !== 0) {
+            tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
+        }
     }
+    if (['BUTTON', 'INPUT'].includes(tag)) {
+        tag += `(type='${await (await elemHandle[0].getProperty('type')).jsonValue()}')`
+    }
+    // if (await elemHandle[0].boundingBox()) {
+    //     screenshotName = `.
+    //     }/../res/cypress-realworld-app/screenshots/${crypto.randomBytes(20).toString('hex')}.png`
+    //     await elemHandle[0].screenshot({path: screenshotName})
+    // }
+    const urlElem = (await page.$$('[data-cy=aut-url-input]'))
     return {
+        url: {
+            before: '',
+            after: (urlElem.length > 0 ? (await (await (urlElem[0]).getProperty('value')).jsonValue()) : ''),
+        },
         html: htmlContent,
-        screenshot: screenshotName
+        tag: tag,
+        // screenshot: screenshotName
     }
 }
 
@@ -79,24 +103,25 @@ async function runTests(page, spec_file) {
 
         if (mainRunnebleClasses.includes('runnable-passed')) {
             // console.log('tests finished executing')
-            await parseCommands()
+            await parseCommands(spec_file)
             break
         } else {
             // console.log('still running tests')
         }
     }
 
-    async function parseCommands() {
+    async function parseCommands(spec_file) {
         // clearTimeout(timeout);
         const frame = await (await page.waitForSelector('iframe.aut-iframe')).contentFrame();
         await page.waitForSelector(testListSelector)
         const list = await page.$$(testListSelector)
-        const results = []
+        const tests = []
         for (let i = 0; i < list.length; i++) {
+            const results = []
             await list[i].click()
             const test_title = await (await (await list[i].$$(testTitleSelector))[0].getProperty('innerText')).jsonValue()
             console.log("TITLE: " + test_title)
-            const commands = await (await list[i].$$(testCommandSectionSelector))[1].$$(testCommandsSelector)
+            const commands = [...(await (await list[i].$$(testCommandSectionSelector))[0].$$(testCommandsSelector)), ...(await (await list[i].$$(testCommandSectionSelector))[1].$$(testCommandsSelector))]
 
             for (let j = 0; j < commands.length; j++) {
                 await commands[j].click()
@@ -112,29 +137,41 @@ async function runTests(page, spec_file) {
 
                     method: method_text,
                     message: method_message,
+
                     alias: {
                         message: (alias_handle.length === 0 ? "" : await (await alias_handle[0].getProperty('innerText')).jsonValue()),
                         count: (alias_count_handle.length === 0 ? "" : await (await alias_count_handle[0].getProperty('innerText')).jsonValue())
                     },
                     element_entity: ((method_text === 'get' && method_message.length !== 0) ? await getElementEntity(page, frame, commands[j], method_message) :
                         {
+                            url: {
+                                before: '',
+                                after: '',
+                            },
                             html: "",
-                            screenshot: ""
-                        })
+                            tag: "",
+                            // screenshot: ""
+                        }),
                 })
                 // console.log(await (await commands[j].getProperty('innerHTML')).jsonValue())
                 // console.log('\n')
             }
             await list[i].click()
+            tests.push({
+                title: test_title,
+                commands: results,
+            })
             // console.log('\n\n\n')
         }
-        console.log(results)
+        fs.writeFileSync(`./../res/result_${spec_file.replaceAll('.', '_')}.json`, JSON.stringify(tests, null, 2), 'utf-8');
+
+        // console.log(results)
     }
 
 
 }
 
-browserPort = 39909
+browserPort = 42387
 
 glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
     runTestFiles(browserPort, files)
