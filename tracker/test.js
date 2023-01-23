@@ -20,18 +20,18 @@ async function runTestFiles(browserPort, spec_files) {
     const browserURL = `http://127.0.0.1:${browserPort}`
     const browser = await puppeteer.connect({browserURL})
     const page = (await browser.pages())[0]
-    await page.setViewport({
-        width: 1366,
-        height: 768,
-        deviceScaleFactor: 20
-    });
+    // await page.setViewport({
+    //     width: 1366,
+    //     height: 768,
+    //     deviceScaleFactor: 20
+    // });
     // await testCode(page)
     // process.exit(1)
 
     for (const spec of spec_files) {
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
-        if (!['user-settings.spec.ts'].includes(arr[arr.length - 1]))
+        if (!['transaction-feeds.spec.ts', 'transaction-view.spec.ts', 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
             continue
         await runTests(page, arr[arr.length - 1])
         // break
@@ -55,10 +55,7 @@ async function getElementEntity(page, frame, command, selector) {
     // console.log(formattedSelector + " " + elemHandle.length)
     if (elemHandle.length === 0) {
         return {
-            url: {
-                before: '',
-                after: '',
-            }, html: '', screenshot: ''
+           html: '', screenshot: '', tag:''
         }
     }
     // let screenshotName = ''
@@ -79,12 +76,13 @@ async function getElementEntity(page, frame, command, selector) {
     //     }/../res/cypress-realworld-app/screenshots/${crypto.randomBytes(20).toString('hex')}.png`
     //     await elemHandle[0].screenshot({path: screenshotName})
     // }
-    const urlElem = (await page.$$('[data-cy=aut-url-input]'))
+    // await page.waitForSelector('[data-cy=aut-url-input]')
+    // const urlElem = (await page.$$('[data-cy=aut-url-input]'))
     return {
-        url: {
-            before: '',
-            after: (urlElem.length > 0 ? (await (await (urlElem[0]).getProperty('value')).jsonValue()) : ''),
-        },
+        // url: {
+        //     before: '',
+        //     after: (urlElem.length > 0 ? (await (await urlElem[0].getProperty('value')).jsonValue()) : ''),
+        // },
         html: htmlContent,
         tag: tag,
         // screenshot: screenshotName
@@ -144,10 +142,10 @@ async function runTests(page, spec_file) {
                     },
                     element_entity: ((method_text === 'get' && method_message.length !== 0) ? await getElementEntity(page, frame, commands[j], method_message) :
                         {
-                            url: {
-                                before: '',
-                                after: '',
-                            },
+                            // url: {
+                            //     before: '',
+                            //     after: '',
+                            // },
                             html: "",
                             tag: "",
                             // screenshot: ""
@@ -171,7 +169,7 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 42387
+browserPort = 38219
 
 glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
     runTestFiles(browserPort, files)
