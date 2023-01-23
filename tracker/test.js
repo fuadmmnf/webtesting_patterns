@@ -21,7 +21,7 @@ async function runTestFiles(browserPort, spec_files) {
     const browser = await puppeteer.connect({browserURL})
     const page = (await browser.pages())[0]
     // await page.setViewport({
-    //     width: 1366,
+    //     width: 1366
     //     height: 768,
     //     deviceScaleFactor: 20
     // });
