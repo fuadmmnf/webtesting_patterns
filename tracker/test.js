@@ -3,7 +3,10 @@ const puppeteer = require('puppeteer-core')
 const glob = require('glob');
 crypto = require('node:crypto');
 
-
+const browserPort = 32997
+const projectname = 'cypress-realworld-app'
+const testDir = './../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts'
+let runningSpec = ''
 const testListSelector = ".runnables-region > ul.runnables > li"
 const testCommandSectionSelector = "div.runnable-commands-region > ul.hooks-container > li"
 const testCommandsSelector = "span.command-info"
@@ -17,6 +20,13 @@ const commandAliasCountSelector = "span.command-alias-count"
 let screenshotContentHashes = {}
 
 
+glob(testDir, function (err, files) {
+    runTestFiles(browserPort, files.map(fp => {
+        a = fp.split('/')
+        return a[a.length - 1]
+    }))
+})
+
 async function runTestFiles(browserPort, spec_files) {
     const browserURL = `http://127.0.0.1:${browserPort}`
     const browser = await puppeteer.connect({browserURL})
@@ -29,16 +39,26 @@ async function runTestFiles(browserPort, spec_files) {
     // await testCode(page)
     // process.exit(1)
 
-    for (const spec of spec_files) {
+    const checkpointIndex = spec_files.findIndex(v => v === 'notifications.spec.ts')
+    for (let i = 0; i < spec_files.length; i++) {
+        if (i < checkpointIndex) continue
         screenshotContentHashes = {}
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
-        let arr = spec.split('/')
-        if (![/*'transaction-feeds.spec.ts', 'transaction-view.spec.ts',*/ 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
-            continue
-        await runTests(page, arr[arr.length - 1])
+        // let arr = spec_files[i].split('/')
+        runningSpec = spec_files[i]
+
+        //create result directory for spec file
+        const specDir = `./../res/${projectname}/screenshots/${runningSpec}`
+        if (!fs.existsSync(specDir)) {
+            fs.mkdirSync(specDir, {recursive: true})
+        }
+
+        // if (![/*'transaction-feeds.spec.ts', 'transaction-view.spec.ts',*/ 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
+        //     continue
+        await runTests(page)
         // break
     }
-
+    browser.disconnect()
 
 }
 
@@ -73,9 +93,9 @@ async function getElementEntity(page, frame, selector) {
     const boundingBox = await elemHandle[0].boundingBox();
     if (boundingBox && boundingBox.height > 0 && boundingBox.width > 0) {
         screenshotName = crypto.createHash("sha256").update(htmlContent, "binary").digest("base64").replaceAll('/', '_')
-        screenshotName = `./../res/cypress-realworld-app/screenshots/${screenshotName}.jpeg`
+        screenshotName = `./../res/${projectname}/screenshots/${runningSpec}/${screenshotName}.jpeg`
         if (!(screenshotName in screenshotContentHashes)) {
-            await elemHandle[0].screenshot({path: screenshotName, type:'jpeg'})
+            await elemHandle[0].screenshot({path: screenshotName, type: 'jpeg'})
             screenshotContentHashes[screenshotName] = true
         }
     }
@@ -98,10 +118,10 @@ async function getAutUrl(page) {
     return (urlElem.length > 0 ? (await (await urlElem[0].getProperty('value')).jsonValue()) : '')
 }
 
-async function runTests(page, spec_file) {
-    console.log("running: " + spec_file)
+async function runTests(page) {
+    console.log("running: " + runningSpec)
 
-    let testcase_item = (await page.$$(`[data-cy-row="${spec_file}"] > a`))[0]
+    let testcase_item = (await page.$$(`[data-cy-row="${runningSpec}"] > a`))[0]
     await testcase_item.click()
     await page.waitForSelector(allTestRanConfirmationSelector)
     while (true) {
@@ -109,14 +129,14 @@ async function runTests(page, spec_file) {
 
         if (mainRunnebleClasses.includes('runnable-passed')) {
             // console.log('tests finished executing')
-            await parseCommands(spec_file)
+            await parseCommands()
             break
         } else {
             // console.log('still running tests')
         }
     }
 
-    async function parseCommands(spec_file) {
+    async function parseCommands() {
         // clearTimeout(timeout);
         const frame = await (await page.waitForSelector('iframe.aut-iframe')).contentFrame();
         await page.waitForSelector(testListSelector)
@@ -207,7 +227,7 @@ async function runTests(page, spec_file) {
                 commands: results,
             })
         }
-        fs.writeFileSync(`./../res/result_${spec_file.replaceAll('.', '_')}.json`, JSON.stringify(tests, null, 2), 'utf-8');
+        fs.writeFileSync(`./../res/${projectname}/test_${runningSpec.replaceAll('.', '_')}.json`, JSON.stringify(tests, null, 2), 'utf-8');
 
         // console.log(results)
     }
@@ -215,10 +235,5 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 32997
 
 
-//cypress-realworld-app
-glob('./../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts', function (err, files) {
-    runTestFiles(browserPort, files)
-})
