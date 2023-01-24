@@ -14,21 +14,23 @@ const commandMethodSelector = "span.command-method > span"
 const commandMessageSelector = "span.command-message-text"
 const commandAliasSelector = "span.command-alias"
 const commandAliasCountSelector = "span.command-alias-count"
+let screenshotContentHashes = {}
 
 
 async function runTestFiles(browserPort, spec_files) {
     const browserURL = `http://127.0.0.1:${browserPort}`
     const browser = await puppeteer.connect({browserURL})
     const page = (await browser.pages())[0]
-    // await page.setViewport({
-    //     width: 1366
-    //     height: 768,
-    //     deviceScaleFactor: 20
-    // });
+    await page.setViewport({
+        width: 1366,
+        height: 768,
+        deviceScaleFactor: 2
+    });
     // await testCode(page)
     // process.exit(1)
 
     for (const spec of spec_files) {
+        screenshotContentHashes = {}
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
         if (![/*'transaction-feeds.spec.ts', 'transaction-view.spec.ts',*/ 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
@@ -54,9 +56,9 @@ async function getElementEntity(page, frame, selector) {
             html: '', screenshot: '', tag: ''
         }
     }
-    let screenshotName = ''
     let htmlContent = await (await elemHandle[0].getProperty('outerHTML')).jsonValue()
     let tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
+    let screenshotName = ''
     // if (tag === 'DIV') {
     //     // console.log(htmlContent)
     //     elemHandle = (await elemHandle[0].$$("button,input,a,h1,h2"))
@@ -70,8 +72,12 @@ async function getElementEntity(page, frame, selector) {
 
     const boundingBox = await elemHandle[0].boundingBox();
     if (boundingBox && boundingBox.height > 0 && boundingBox.width > 0) {
-        screenshotName = `./../res/cypress-realworld-app/screenshots/${crypto.randomBytes(20).toString('hex')}.png`
-        await elemHandle[0].screenshot({path: screenshotName})
+        screenshotName = crypto.createHash("sha256").update(htmlContent, "binary").digest("base64").replaceAll('/', '_')
+        screenshotName = `./../res/cypress-realworld-app/screenshots/${screenshotName}.jpeg`
+        if (!(screenshotName in screenshotContentHashes)) {
+            await elemHandle[0].screenshot({path: screenshotName, type:'jpeg'})
+            screenshotContentHashes[screenshotName] = true
+        }
     }
 
 
@@ -140,20 +146,25 @@ async function runTests(page, spec_file) {
                 const message_handle = (await commands[j].$$(commandMessageSelector))
                 const method_message = message_handle.length === 0 ? "" : await (await message_handle[0].getProperty('innerText')).jsonValue()
 
-                if(method_text === 'get'){
+                if (method_text === 'get') {
                     currentElementSelector = method_message
                 }
 
-                let beforeActionSnapshot = {}
-                let afterActionSnapshot = {}
+                let beforeActionSnapshot = {url: await getAutUrl(page),}
+                let afterActionSnapshot = {url: await getAutUrl(page),}
                 if (highlightHandle.length > 0) {
+
+                    let tooglebar = await page.$$('[data-testid="snapshot-controls"]')
+                    await tooglebar[0].evaluate((el) => el.style.visibility = 'hidden');
+
                     // get snapshot info
                     beforeActionSnapshot = {
-                        url: await getAutUrl(page),
+                        ...beforeActionSnapshot,
                         element: await getElementEntity(page, frame, currentElementSelector),
-                        page: await getElementEntity(page, frame, '*'),
+                        page: await getElementEntity(page, frame, 'body'),
                     }
 
+                    await tooglebar[0].evaluate((el) => el.style.visibility = 'visible');
                     // change to after snapshot
                     const snapToggle = (await page.$$('[data-cy="snapshot-toggle"]'))
                     if (snapToggle.length > 0) { // not all commands have snapshot toggle
@@ -162,12 +173,13 @@ async function runTests(page, spec_file) {
                             await snapshotButtons[1].click() // click after state button
                         }
                     }
-
+                    await tooglebar[0].evaluate((el) => el.style.visibility = 'hidden');
                     afterActionSnapshot = {
-                        url: await getAutUrl(page),
-                        element: (snapToggle.length > 0? await getElementEntity(page, frame, currentElementSelector): {}),
-                        page: await getElementEntity(page, frame, '*')
+                        ...afterActionSnapshot,
+                        element: (snapToggle.length > 0 ? await getElementEntity(page, frame, currentElementSelector) : {}),
+                        page: await getElementEntity(page, frame, 'body')
                     }
+                    await tooglebar[0].evaluate((el) => el.style.visibility = 'visible');
 
 
                 }
@@ -203,7 +215,7 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 33561
+browserPort = 32997
 
 
 //cypress-realworld-app
