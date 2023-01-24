@@ -31,7 +31,7 @@ async function runTestFiles(browserPort, spec_files) {
     for (const spec of spec_files) {
         await (await page.$$(`[data-cy="sidebar-link-specs-page"]`))[0].click()
         let arr = spec.split('/')
-        if (!['transaction-feeds.spec.ts', 'transaction-view.spec.ts', 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
+        if (![/*'transaction-feeds.spec.ts', 'transaction-view.spec.ts',*/ 'user-settings.spec.ts'].includes(arr[arr.length - 1]))
             continue
         await runTests(page, arr[arr.length - 1])
         // break
@@ -57,17 +57,19 @@ async function getElementEntity(page, frame, selector) {
     let screenshotName = ''
     let htmlContent = await (await elemHandle[0].getProperty('outerHTML')).jsonValue()
     let tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
-    if (tag === 'DIV') {
-        // console.log(htmlContent)
-        elemHandle = (await elemHandle[0].$$("button,input,a,h1,h2"))
-        if (elemHandle.length !== 0) {
-            tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
-        }
-    }
+    // if (tag === 'DIV') {
+    //     // console.log(htmlContent)
+    //     elemHandle = (await elemHandle[0].$$("button,input,a,h1,h2"))
+    //     if (elemHandle.length !== 0) {
+    //         tag = (await (await elemHandle[0].getProperty('tagName')).jsonValue())
+    //     }
+    // }
     if (['BUTTON', 'INPUT'].includes(tag)) {
         tag += `(type='${await (await elemHandle[0].getProperty('type')).jsonValue()}')`
     }
-    if (await elemHandle[0].boundingBox()) {
+
+    const boundingBox = await elemHandle[0].boundingBox();
+    if (boundingBox && boundingBox.height > 0 && boundingBox.width > 0) {
         screenshotName = `./../res/cypress-realworld-app/screenshots/${crypto.randomBytes(20).toString('hex')}.png`
         await elemHandle[0].screenshot({path: screenshotName})
     }
@@ -121,6 +123,7 @@ async function runTests(page, spec_file) {
             console.log("TITLE: " + test_title)
             const commands = [...(await (await list[i].$$(testCommandSectionSelector))[0].$$(testCommandsSelector)), ...(await (await list[i].$$(testCommandSectionSelector))[1].$$(testCommandsSelector))]
 
+            let currentElementSelector = null
             for (let j = 0; j < commands.length; j++) {
                 await commands[j].click()
                 const highlightHandle = (await page.$$('#toggle-highlights')) // turn off element highlight
@@ -137,24 +140,37 @@ async function runTests(page, spec_file) {
                 const message_handle = (await commands[j].$$(commandMessageSelector))
                 const method_message = message_handle.length === 0 ? "" : await (await message_handle[0].getProperty('innerText')).jsonValue()
 
-
-                // get snapshot info
-                const beforeActionSnapshot = {
-                    url: await getAutUrl(page),
-                    element: await getElementEntity(page, frame, method_message),
-                    page: await getElementEntity(page, frame, '*')
-                }
-                // change to after snapshot
-                const snapshotButtons = (await ((await page.$$('[data-cy="snapshot-toggle"]'))[0]).$$('button'))
-                if (snapshotButtons.length > 0) {
-                    await snapshotButtons[1].click() // click after state button
-                }
-                const afterActionSnapshot = {
-                    url: await getAutUrl(page),
-                    element: await getElementEntity(page, frame, method_message),
-                    page: await getElementEntity(page, frame, '*')
+                if(method_text === 'get'){
+                    currentElementSelector = method_message
                 }
 
+                let beforeActionSnapshot = {}
+                let afterActionSnapshot = {}
+                if (highlightHandle.length > 0) {
+                    // get snapshot info
+                    beforeActionSnapshot = {
+                        url: await getAutUrl(page),
+                        element: await getElementEntity(page, frame, currentElementSelector),
+                        page: await getElementEntity(page, frame, '*'),
+                    }
+
+                    // change to after snapshot
+                    const snapToggle = (await page.$$('[data-cy="snapshot-toggle"]'))
+                    if (snapToggle.length > 0) { // not all commands have snapshot toggle
+                        const snapshotButtons = (await (snapToggle[0]).$$('button'))
+                        if (snapshotButtons.length > 0) {
+                            await snapshotButtons[1].click() // click after state button
+                        }
+                    }
+
+                    afterActionSnapshot = {
+                        url: await getAutUrl(page),
+                        element: (snapToggle.length > 0? await getElementEntity(page, frame, currentElementSelector): {}),
+                        page: await getElementEntity(page, frame, '*')
+                    }
+
+
+                }
 
                 results.push({
                     info: {
@@ -187,7 +203,7 @@ async function runTests(page, spec_file) {
 
 }
 
-browserPort = 38219
+browserPort = 33561
 
 
 //cypress-realworld-app
