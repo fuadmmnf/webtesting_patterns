@@ -3,3 +3,4 @@ node_modules
 venv
 /res/**
 !/res/cypress_github_projects.json
+test_systems/**
