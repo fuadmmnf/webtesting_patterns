@@ -4,8 +4,8 @@ const glob = require('glob');
 crypto = require('node:crypto');
 
 const browserPort = 32997
-const projectname = 'cypress-realworld-app'
-const testDir = './../test_systems/cypress-realworld-app/cypress/tests/ui/*.ts'
+const projectname = 'react-admin'
+const testDir = './../test_systems/react-admin/cypress/e2e/*.js'
 let runningSpec = ''
 const testListSelector = ".runnables-region > ul.runnables > li"
 const testCommandSectionSelector = "div.runnable-commands-region > ul.hooks-container > li"

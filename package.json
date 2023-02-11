@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "glob": "^8.0.3",
+    "mongodb": "^5.0.1",
     "octokit": "^2.0.13",
     "puppeteer": "^19.4.1",
     "puppeteer-jquery": "^0.3.4"
