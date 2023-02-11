@@ -41,12 +41,15 @@ async function handleTestLog(db, projId, specName, testLogs) {
             num_commands: testLog.commands.length,
             num_asserts: testLog.commands.filter(c => c.info.method === 'assert').length,
         })
-
+        let prevSnap = null
+        let afterSnap = null
         for (let commandLog in testLog.commands) {
             // create before snapshot
-            let prevSnap = await createSnapshotDoc(snapshotsCollection, null, commandLog.snapshot.before, null)
+            if(prevSnap === null){
+                prevSnap = await createSnapshotDoc(snapshotsCollection, null, commandLog.snapshot.before, null)
+            }
             // create after snapshot
-            let nextSnap = await createSnapshotDoc(snapshotsCollection, null, commandLog.snapshot.after, null)
+            afterSnap = await createSnapshotDoc(snapshotsCollection, null, commandLog.snapshot.after, null)
 
             await commandsCollection.insertOne({
                 _id: ObjectId(),
@@ -54,9 +57,10 @@ async function handleTestLog(db, projId, specName, testLogs) {
                 info: commandLog.info,
                 snapshots: {
                     before: prevSnap._id,
-                    after: nextSnap._id,
+                    after: afterSnap._id,
                 }
             })
+            prevSnap = afterSnap
         }
     }
 }
